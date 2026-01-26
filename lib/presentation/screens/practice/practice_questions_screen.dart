@@ -11,6 +11,7 @@ import '../../../data/models/topik_exam.dart';
 import '../../../data/services/data_service.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/progress_provider.dart';
+import '../../../core/utils/global_audio_manager.dart';
 import '../../widgets/exam/topik_question_widget.dart';
 
 /// Practice Questions Screen - Shows ALL questions matching instruction range
@@ -60,6 +61,12 @@ class _PracticeQuestionsScreenState extends State<PracticeQuestionsScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadInitialData();
     });
+  }
+
+  @override
+  void dispose() {
+    GlobalAudioManager().stop();
+    super.dispose();
   }
 
   void _loadInitialData() async {
