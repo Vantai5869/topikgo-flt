@@ -6,6 +6,7 @@ import 'providers/auth_provider.dart';
 import 'providers/progress_provider.dart';
 import 'presentation/screens/home/home_screen.dart';
 import 'presentation/screens/mock_test/mock_test_screen.dart';
+import 'presentation/screens/youtube_learning/youtube_learning_screen.dart';
 import 'presentation/screens/profile/profile_screen.dart';
 
 class TopikGoApp extends StatelessWidget {
@@ -37,6 +38,7 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
+  bool _hideBottomNav = false;
 
   String? _lastToken;
 
@@ -74,20 +76,31 @@ class _MainScreenState extends State<MainScreen> {
     });
   }
 
-  final List<Widget> _screens = const [
-    HomeScreen(),
-    MockTestScreen(),
-    ProfileScreen(),
-  ];
+  List<Widget> _buildScreens() {
+    return [
+      const HomeScreen(),
+      const MockTestScreen(),
+      YouTubeLearningScreen(
+        onFullscreenChanged: (isFullscreen) {
+          setState(() {
+            _hideBottomNav = isFullscreen;
+          });
+        },
+      ),
+      const ProfileScreen(),
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: IndexedStack(
         index: _currentIndex,
-        children: _screens,
+        children: _buildScreens(),
       ),
-      bottomNavigationBar: BottomNavigationBar(
+      bottomNavigationBar: _hideBottomNav
+          ? null
+          : BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: (index) {
           setState(() {
@@ -109,6 +122,11 @@ class _MainScreenState extends State<MainScreen> {
             icon: Icon(Icons.timer_outlined),
             activeIcon: Icon(Icons.timer),
             label: 'Thi thử',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.headphones_outlined),
+            activeIcon: Icon(Icons.headphones),
+            label: 'Luyện nghe',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person_outline),

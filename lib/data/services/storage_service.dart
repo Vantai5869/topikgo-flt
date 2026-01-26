@@ -136,4 +136,24 @@ class StorageService {
     final key = '$_pendingSyncKeyPrefix${userId ?? 'guest'}';
     await _prefs!.remove(key);
   }
+
+  // YouTube Practice History
+  static const String _youtubeHistoryKey = 'youtube_practice_history';
+
+  Future<void> saveYouTubeHistory(List<Map<String, String>> history, {String? userId}) async {
+    final key = userId != null ? '${_youtubeHistoryKey}_$userId' : _youtubeHistoryKey;
+    await _prefs!.setString(key, json.encode(history));
+  }
+
+  List<Map<String, String>> getYouTubeHistory({String? userId}) {
+    final key = userId != null ? '${_youtubeHistoryKey}_$userId' : _youtubeHistoryKey;
+    final dataStr = _prefs!.getString(key);
+    if (dataStr == null) return [];
+    try {
+      final List<dynamic> decoded = json.decode(dataStr);
+      return decoded.map((e) => Map<String, String>.from(e)).toList();
+    } catch (e) {
+      return [];
+    }
+  }
 }

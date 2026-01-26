@@ -214,4 +214,43 @@ class AuthService {
       return null;
     }
   }
+
+  // YouTube Saved Videos API
+  Future<List<Map<String, dynamic>>> getSavedVideos() async {
+    try {
+      final response = await _apiService.get(ApiConstants.savedVideos);
+      if (response.statusCode == 200 && response.data != null) {
+        final data = response.data;
+        if (data is Map && data['videos'] is List) {
+          final videos = List<Map<String, dynamic>>.from(data['videos']);
+          return videos;
+        }
+      }
+      return [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  Future<void> saveVideo(Map<String, dynamic> videoData) async {
+    try {
+      final response = await _apiService.post(
+        ApiConstants.savedVideos,
+        data: videoData,
+      );
+    } catch (e) {
+      // Handle error silently
+    }
+  }
+
+  Future<void> syncVideos(List<Map<String, dynamic>> videos) async {
+    try {
+      await _apiService.post(
+        ApiConstants.syncVideos,
+        data: {'videos': videos},
+      );
+    } catch (e) {
+      throw Exception('Sync failed: $e');
+    }
+  }
 }

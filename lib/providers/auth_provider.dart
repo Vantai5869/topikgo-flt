@@ -88,6 +88,22 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  // YouTube Saved Videos API
+  Future<List<Map<String, dynamic>>> getYouTubeSavedVideos() async {
+    if (!isAuthenticated) return [];
+    return await _authService.getSavedVideos();
+  }
+
+  Future<void> saveYouTubeVideo(Map<String, dynamic> videoData) async {
+    if (!isAuthenticated) return;
+    await _authService.saveVideo(videoData);
+  }
+
+  Future<void> syncYouTubeVideos(List<Map<String, dynamic>> videos) async {
+    if (!isAuthenticated || videos.isEmpty) return;
+    await _authService.syncVideos(videos);
+  }
+
   void clearError() {
     _errorMessage = null;
     notifyListeners();

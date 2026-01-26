@@ -6,6 +6,15 @@ import '../../../providers/auth_provider.dart';
 class LoginBottomSheet extends StatefulWidget {
   const LoginBottomSheet({super.key});
 
+  static Future<void> show(BuildContext context) {
+    return showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => const LoginBottomSheet(),
+    );
+  }
+
   @override
   State<LoginBottomSheet> createState() => _LoginBottomSheetState();
 }

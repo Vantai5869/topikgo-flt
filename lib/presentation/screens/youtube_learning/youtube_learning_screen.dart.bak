@@ -1,0 +1,1191 @@
+import 'dart:convert';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
+import 'package:youtube_player_flutter/youtube_player_flutter.dart';
+import '../../widgets/gradient_background.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../data/models/subtitle_models.dart';
+import '../../../data/services/youtube_subtitle_service.dart';
+
+class YouTubeLearningScreen extends StatefulWidget {
+  final Function(bool)? onFullscreenChanged;
+
+  const YouTubeLearningScreen({super.key, this.onFullscreenChanged});
+
+  @override
+  State<YouTubeLearningScreen> createState() => _YouTubeLearningScreenState();
+}
+
+class _YouTubeLearningScreenState extends State<YouTubeLearningScreen> {
+  final TextEditingController _urlController = TextEditingController();
+  final TextEditingController _searchController = TextEditingController();
+  final YouTubeSubtitleService _subtitleService = YouTubeSubtitleService.getInstance();
+  final List<GlobalKey> _subtitleKeys = [];
+  
+  YoutubePlayerController? _playerController;
+  List<Subtitle> _subtitles = [];
+  List<Subtitle> _translatedSubtitles = [];
+  bool _isLoading = false;
+  bool _isTranslating = false;
+  String? _error;
+  String? _currentVideoId;
+  String? _videoTitle;
+  int _activeSubtitleIndex = -1;
+  int _inputTabIndex = 0; // 0: Direct Link, 1: Search
+
+  @override
+  void initState() {
+    super.initState();
+    // Set default video URL
+    _urlController.text = 'https://www.youtube.com/watch?v=j-srZ9t-Mfg';
+  }
+
+  @override
+  void dispose() {
+    _urlController.dispose();
+    _searchController.dispose();
+    _playerController?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Scaffold(
+      body: Stack(
+        children: [
+          const GradientBackground(),
+          SafeArea(
+            child: _currentVideoId == null
+                ? _buildInputView(isDark)
+                : _buildVideoView(isDark),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInputView(bool isDark) {
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // App Icon/Logo placeholder
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    AppColors.blue,
+                    AppColors.emerald,
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: const Icon(
+                Icons.headphones,
+                size: 40,
+                color: Colors.white,
+              ),
+            ),
+            
+            const SizedBox(height: 24),
+            
+            // Title
+            Text(
+              'Luyện nghe qua YouTube',
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.w800,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Học tiếng Hàn qua video với\nphụ đề song ngữ tương tác',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: isDark ? Colors.white60 : Colors.black54,
+                    height: 1.5,
+                  ),
+              textAlign: TextAlign.center,
+            ),
+            
+            const SizedBox(height: 32),
+            
+            // Input Tabs
+            _buildInputSection(isDark),
+            
+            const SizedBox(height: 32),
+            
+            // Watched Videos Section
+            _buildWatchedVideos(isDark),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVideoView(bool isDark) {
+    return Column(
+      children: [
+        // Compact Header
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.arrow_back, size: 22),
+                onPressed: () {
+                  setState(() {
+                    _playerController?.dispose();
+                    _playerController = null;
+                    _currentVideoId = null;
+                    _videoTitle = null;
+                    _subtitles = [];
+                    _translatedSubtitles = [];
+                    _activeSubtitleIndex = -1;
+                    _error = null;
+                    // Notify parent to show bottom nav again
+                    widget.onFullscreenChanged?.call(false);
+                  });
+                },
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  _videoTitle ?? 'Luyện nghe',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              if (_isTranslating)
+                SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation(AppColors.blue),
+                  ),
+                ),
+            ],
+          ),
+        ),
+
+        // Video Player
+        if (_playerController != null)
+          YoutubePlayer(
+            controller: _playerController!,
+            showVideoProgressIndicator: true,
+            progressIndicatorColor: AppColors.blue,
+            progressColors: ProgressBarColors(
+              playedColor: AppColors.blue,
+              handleColor: AppColors.blue,
+            ),
+          ),
+
+        // Loading or Error
+        if (_isLoading)
+          const Padding(
+            padding: EdgeInsets.all(32.0),
+            child: CircularProgressIndicator(),
+          ),
+
+        if (_error != null)
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.red.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.error_outline, color: Colors.red.shade700),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      _error!,
+                      style: TextStyle(color: Colors.red.shade700),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+        // Subtitles List
+        if (_subtitles.isNotEmpty)
+          Expanded(
+            child: _buildSubtitlesList(isDark),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildSubtitlesList(bool isDark) {
+    // Initialize keys for each subtitle
+    if (_subtitleKeys.length != _subtitles.length) {
+      _subtitleKeys.clear();
+      _subtitleKeys.addAll(
+        List.generate(_subtitles.length, (_) => GlobalKey()),
+      );
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(top: 8),
+      decoration: BoxDecoration(
+        color: isDark 
+            ? AppColors.glassDark.withValues(alpha: 0.3)
+            : Colors.white.withValues(alpha: 0.4),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: ListView.builder(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        itemCount: _subtitles.length,
+        itemBuilder: (context, index) {
+          final subtitle = _subtitles[index];
+          final translation = index < _translatedSubtitles.length 
+              ? _translatedSubtitles[index] 
+              : null;
+          final isActive = index == _activeSubtitleIndex;
+
+          return GestureDetector(
+            key: _subtitleKeys[index],
+            onTap: () => _seekToSubtitle(subtitle.start),
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: isActive
+                    ? AppColors.blue.withValues(alpha: isDark ? 0.2 : 0.12)
+                    : isDark
+                        ? Colors.white.withValues(alpha: 0.03)
+                        : Colors.black.withValues(alpha: 0.02),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isActive
+                      ? AppColors.blue.withValues(alpha: 0.4)
+                      : Colors.transparent,
+                  width: 1.5,
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Korean subtitle
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          subtitle.text,
+                          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+                                height: 1.5,
+                                fontSize: 16,
+                              ),
+                        ),
+                      ),
+                      if (isActive)
+                        Container(
+                          margin: const EdgeInsets.only(left: 8),
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: AppColors.blue.withValues(alpha: 0.2),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            Icons.headphones,
+                            color: AppColors.blue,
+                            size: 16,
+                          ),
+                        ),
+                    ],
+                  ),
+
+                  // Translation
+                  if (translation != null) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      translation.text,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: isDark 
+                                ? Colors.white.withValues(alpha: 0.6)
+                                : Colors.black.withValues(alpha: 0.5),
+                            height: 1.4,
+                            fontSize: 14,
+                          ),
+                    ),
+                  ] else if (_isTranslating) ...[
+                    const SizedBox(height: 6),
+                    Container(
+                      height: 12,
+                      decoration: BoxDecoration(
+                        color: isDark 
+                            ? Colors.white.withValues(alpha: 0.1)
+                            : Colors.black.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      width: 200,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildInputSection(bool isDark) {
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 600),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.08),
+            blurRadius: 24,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: Container(
+          decoration: BoxDecoration(
+            color: isDark ? AppColors.glassDark : Colors.white.withValues(alpha: 0.95),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: isDark ? AppColors.glassBorderDark : AppColors.glassBorderLight,
+              width: 1,
+            ),
+          ),
+          child: Column(
+            children: [
+              // Tab Bar
+              Container(
+                decoration: BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(
+                      color: isDark 
+                          ? Colors.white.withValues(alpha: 0.1)
+                          : Colors.black.withValues(alpha: 0.05),
+                    ),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: _buildTab('Nhập link', 0, isDark),
+                    ),
+                    Expanded(
+                      child: _buildTab('Tìm kiếm', 1, isDark),
+                    ),
+                  ],
+                ),
+              ),
+              
+              // Tab Content
+              Padding(
+                padding: const EdgeInsets.all(24),
+                child: _inputTabIndex == 0
+                    ? _buildDirectLinkTab(isDark)
+                    : _buildSearchTab(isDark),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTab(String label, int index, bool isDark) {
+    final isActive = _inputTabIndex == index;
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _inputTabIndex = index;
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(
+              color: isActive ? AppColors.blue : Colors.transparent,
+              width: 2,
+            ),
+          ),
+        ),
+        child: Text(
+          label,
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                color: isActive
+                    ? AppColors.blue
+                    : (isDark ? Colors.white60 : Colors.black54),
+              ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDirectLinkTab(bool isDark) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // URL TextField with Paste button
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _urlController,
+                style: Theme.of(context).textTheme.bodyLarge,
+                decoration: InputDecoration(
+                  hintText: 'youtube.com/watch?v=...',
+                  hintStyle: TextStyle(
+                    color: isDark ? Colors.white38 : Colors.black38,
+                  ),
+                  filled: true,
+                  fillColor: isDark 
+                      ? Colors.white.withValues(alpha: 0.05)
+                      : Colors.black.withValues(alpha: 0.03),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide.none,
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 16,
+                  ),
+                  prefixIcon: Icon(
+                    Icons.link,
+                    color: isDark ? Colors.white54 : Colors.black54,
+                    size: 22,
+                  ),
+                ),
+                onSubmitted: (_) => _handleLoadVideo(),
+              ),
+            ),
+            const SizedBox(width: 8),
+            // Paste button
+            IconButton(
+              onPressed: _pasteFromClipboard,
+              style: IconButton.styleFrom(
+                backgroundColor: isDark
+                    ? Colors.white.withValues(alpha: 0.1)
+                    : Colors.black.withValues(alpha: 0.05),
+                padding: const EdgeInsets.all(16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+              icon: Icon(
+                Icons.content_paste,
+                color: isDark ? Colors.white70 : Colors.black54,
+                size: 22,
+              ),
+            ),
+          ],
+        ),
+        
+        const SizedBox(height: 16),
+        
+        // Load Button
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: _isLoading ? null : _handleLoadVideo,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.blue,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              elevation: 0,
+              disabledBackgroundColor: AppColors.blue.withValues(alpha: 0.5),
+            ),
+            child: _isLoading
+                ? const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  )
+                : Text(
+                    'Bắt đầu học',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSearchTab(bool isDark) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Search field
+        TextField(
+          controller: _searchController,
+          style: Theme.of(context).textTheme.bodyLarge,
+          decoration: InputDecoration(
+            hintText: 'Tìm video tiếng Hàn...',
+            hintStyle: TextStyle(
+              color: isDark ? Colors.white38 : Colors.black38,
+            ),
+            filled: true,
+            fillColor: isDark 
+                ? Colors.white.withValues(alpha: 0.05)
+                : Colors.black.withValues(alpha: 0.03),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide.none,
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 20,
+              vertical: 16,
+            ),
+            prefixIcon: Icon(
+              Icons.search,
+              color: isDark ? Colors.white54 : Colors.black54,
+              size: 22,
+            ),
+          ),
+        ),
+        
+        const SizedBox(height: 16),
+        
+        // Coming soon message
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppColors.blue.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: AppColors.blue.withValues(alpha: 0.3),
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                Icons.info_outline,
+                color: AppColors.blue,
+                size: 20,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Tính năng tìm kiếm sẽ sớm ra mắt!',
+                  style: TextStyle(
+                    color: AppColors.blue,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _pasteFromClipboard() async {
+      constraints: const BoxConstraints(maxWidth: 500),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.08),
+            blurRadius: 24,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: Container(
+          padding: const EdgeInsets.all(28),
+          decoration: BoxDecoration(
+            color: isDark ? AppColors.glassDark : Colors.white.withValues(alpha: 0.95),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: isDark ? AppColors.glassBorderDark : AppColors.glassBorderLight,
+              width: 1,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // URL TextField with Paste button
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _urlController,
+                      style: Theme.of(context).textTheme.bodyLarge,
+                      decoration: InputDecoration(
+                        hintText: 'Dán link YouTube vào đây...',
+                        hintStyle: TextStyle(
+                          color: isDark ? Colors.white38 : Colors.black38,
+                        ),
+                        filled: true,
+                        fillColor: isDark 
+                            ? Colors.white.withValues(alpha: 0.05)
+                            : Colors.black.withValues(alpha: 0.03),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide: BorderSide.none,
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 16,
+                        ),
+                        prefixIcon: Icon(
+                          Icons.link,
+                          color: isDark ? Colors.white54 : Colors.black54,
+                          size: 22,
+                        ),
+                      ),
+                      onSubmitted: (_) => _handleLoadVideo(),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  // Paste button
+                  IconButton(
+                    onPressed: _pasteFromClipboard,
+                    style: IconButton.styleFrom(
+                      backgroundColor: isDark
+                          ? Colors.white.withValues(alpha: 0.1)
+                          : Colors.black.withValues(alpha: 0.05),
+                      padding: const EdgeInsets.all(16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    icon: Icon(
+                      Icons.content_paste,
+                      color: isDark ? Colors.white70 : Colors.black54,
+                      size: 22,
+                    ),
+                  ),
+                ],
+              ),
+              
+              const SizedBox(height: 16),
+              
+              // Load Button
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _isLoading ? null : _handleLoadVideo,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.blue,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    elevation: 0,
+                    disabledBackgroundColor: AppColors.blue.withValues(alpha: 0.5),
+                  ),
+                  child: _isLoading
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        )
+                      : Text(
+                          'Bắt đầu học',
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w700,
+                              ),
+                        ),
+                ),
+              ),
+              
+              const SizedBox(height: 20),
+              
+              // Tips
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.info_outline,
+                    size: 16,
+                    color: isDark ? Colors.white54 : Colors.black54,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Video cần có phụ đề tiếng Hàn',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: isDark ? Colors.white54 : Colors.black54,
+                        ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTutorialCard(bool isDark) {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: isDark ? AppColors.glassDark : Colors.white.withValues(alpha: 0.6),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isDark ? AppColors.glassBorderDark : AppColors.glassBorderLight,
+              width: 1,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    Icons.tips_and_updates,
+                    color: AppColors.emerald,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Hướng dẫn',
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              _buildTutorialStep(
+                isDark,
+                'Tìm video tiếng Hàn có phụ đề trên YouTube',
+              ),
+              const SizedBox(height: 8),
+              _buildTutorialStep(
+                isDark,
+                'Dán link vào ô trên và nhấn "Tải phụ đề"',
+              ),
+              const SizedBox(height: 8),
+              _buildTutorialStep(
+                isDark,
+                'Nhấn vào từng câu để nhảy đến thời điểm đó',
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTutorialStep(bool isDark, String text) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          margin: const EdgeInsets.only(top: 4),
+          width: 4,
+          height: 4,
+          decoration: BoxDecoration(
+            color: isDark ? Colors.white54 : Colors.black54,
+            shape: BoxShape.circle,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            text,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: isDark ? Colors.white70 : Colors.black54,
+                  height: 1.4,
+                ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _pasteFromClipboard() async {
+    final data = await Clipboard.getData(Clipboard.kTextPlain);
+    if (data != null && data.text != null) {
+      _urlController.text = data.text!;
+      _urlController.selection = TextSelection.fromPosition(
+        TextPosition(offset: _urlController.text.length),
+      );
+    }
+  }
+
+  Widget _buildWatchedVideos(bool isDark) {
+    // Fixed demo video
+    final demoVideo = {
+      'id': 'j-srZ9t-Mfg',
+      'url': 'https://www.youtube.com/watch?v=j-srZ9t-Mfg',
+      'title': 'Korean Listening Practice',
+      'duration': 'Video demo',
+    };
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          child: Row(
+            children: [
+              Icon(
+                Icons.video_library,
+                size: 20,
+                color: isDark ? Colors.white70 : Colors.black54,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Video mẫu',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        
+        GestureDetector(
+          onTap: () {
+            _urlController.text = demoVideo['url']!;
+            _handleLoadVideo();
+          },
+          child: Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: isDark
+                  ? AppColors.glassDark.withValues(alpha: 0.4)
+                  : Colors.white.withValues(alpha: 0.7),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: isDark ? AppColors.glassBorderDark : AppColors.glassBorderLight,
+                width: 1.5,
+              ),
+            ),
+            child: Row(
+              children: [
+                // Thumbnail placeholder
+                Container(
+                  width: 100,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [AppColors.blue, AppColors.purple],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Center(
+                    child: Icon(
+                      Icons.play_circle_filled,
+                      color: Colors.white,
+                      size: 32,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 14),
+                // Video info
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        demoVideo['title']!,
+                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.translate,
+                            size: 14,
+                            color: AppColors.emerald,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Phụ đề song ngữ',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: AppColors.emerald,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                // Arrow icon
+                Icon(
+                  Icons.arrow_forward_ios,
+                  color: isDark ? Colors.white54 : Colors.black54,
+                  size: 18,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _handleLoadVideo() async {
+    final url = _urlController.text.trim();
+    if (url.isEmpty) {
+      _showError('Vui lòng nhập link YouTube');
+      return;
+    }
+
+    final videoId = _subtitleService.extractVideoId(url);
+    if (videoId == null) {
+      _showError('Link YouTube không hợp lệ');
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      // Fetch subtitles
+      final response = await _subtitleService.fetchSubtitles(videoId, lang: 'ko');
+      
+      if (!response.success || response.subtitles.isEmpty) {
+        throw Exception('Video không có phụ đề tiếng Hàn');
+      }
+
+      // Initialize YouTube player
+      _playerController = YoutubePlayerController(
+        initialVideoId: videoId,
+        flags: const YoutubePlayerFlags(
+          autoPlay: false,
+          mute: false,
+          controlsVisibleAtStart: true,
+        ),
+      );
+
+      // Listen to player state changes to update active subtitle
+      _playerController!.addListener(_onPlayerStateChange);
+
+      setState(() {
+        _currentVideoId = videoId;
+        _subtitles = response.subtitles;
+        _isLoading = false;
+      });
+
+      // Get video title after player is ready
+      _getVideoTitle(videoId);
+
+      // Auto-translate to Vietnamese
+      _translateSubtitles();
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _error = e.toString().replaceAll('Exception: ', '');
+      });
+    }
+  }
+
+  Future<void> _translateSubtitles() async {
+    if (_subtitles.isEmpty) return;
+
+    setState(() {
+      _isTranslating = true;
+    });
+
+    try {
+      final translated = await _subtitleService.translateSubtitles(
+        _subtitles,
+        'vi', // to Vietnamese
+        'ko', // from Korean
+      );
+      
+      setState(() {
+        _translatedSubtitles = translated;
+        _isTranslating = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isTranslating = false;
+      });
+      // Show error to user
+      _showError('Không thể dịch phụ đề. Video vẫn xem được.');
+    }
+  }
+
+  Future<void> _getVideoTitle(String videoId) async {
+    // Try to get title from YouTube oEmbed API (no API key needed)
+    try {
+      final response = await http.get(
+        Uri.parse('https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=$videoId&format=json'),
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final title = data['title'] as String?;
+        
+        if (title != null && title.isNotEmpty) {
+          setState(() {
+            _videoTitle = title;
+            widget.onFullscreenChanged?.call(true);
+          });
+          return;
+        }
+      }
+    } catch (e) {
+      // If oEmbed fails, try player metadata
+    }
+
+    // Fallback: Poll player metadata
+    int attempts = 0;
+    const maxAttempts = 10;
+    
+    while (attempts < maxAttempts) {
+      await Future.delayed(const Duration(milliseconds: 500));
+      
+      if (_playerController != null && _playerController!.value.isReady) {
+        try {
+          final title = _playerController!.metadata.title;
+          if (title.isNotEmpty && title != videoId && !title.contains('watch?v=')) {
+            setState(() {
+              _videoTitle = title;
+              widget.onFullscreenChanged?.call(true);
+            });
+            return;
+          }
+        } catch (e) {
+          // Continue trying
+        }
+      }
+      
+      attempts++;
+    }
+    
+    // Final fallback
+    setState(() {
+      _videoTitle = 'Video YouTube';
+      widget.onFullscreenChanged?.call(true);
+    });
+  }
+
+  void _onPlayerStateChange() {
+    if (_playerController == null || !_playerController!.value.isReady) return;
+
+    final currentTime = _playerController!.value.position.inMilliseconds / 1000;
+    final newIndex = _findActiveSubtitleIndex(currentTime);
+
+    if (newIndex != _activeSubtitleIndex) {
+      setState(() {
+        _activeSubtitleIndex = newIndex;
+      });
+
+      // Auto-scroll to active subtitle
+      if (newIndex >= 0 && newIndex < _subtitleKeys.length) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          final context = _subtitleKeys[newIndex].currentContext;
+          if (context != null) {
+            Scrollable.ensureVisible(
+              context,
+              alignment: 0.3,
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOut,
+            );
+          }
+        });
+      }
+    }
+  }
+
+  int _findActiveSubtitleIndex(double currentTime) {
+    if (_subtitles.isEmpty) return -1;
+
+    int bestMatch = -1;
+    double closestStart = -1;
+
+    for (int i = 0; i < _subtitles.length; i++) {
+      final sub = _subtitles[i];
+      final endTime = sub.start + sub.duration;
+
+      if (currentTime >= sub.start && currentTime < endTime) {
+        // If multiple subtitles match, choose the one with the closest (latest) start time
+        if (sub.start > closestStart) {
+          closestStart = sub.start;
+          bestMatch = i;
+        }
+      }
+    }
+
+    return bestMatch;
+  }
+
+  void _seekToSubtitle(double startTime) {
+    if (_playerController != null && _playerController!.value.isReady) {
+      _playerController!.seekTo(Duration(milliseconds: (startTime * 1000).round()));
+      _playerController!.play();
+    }
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+    );
+  }
+}
