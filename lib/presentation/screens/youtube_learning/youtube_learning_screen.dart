@@ -241,40 +241,80 @@ class _YouTubeLearningScreenState extends State<YouTubeLearningScreen> {
   }
 
   Widget _buildLoadingOverlay(bool isDark) {
-    return BackdropFilter(
-      filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+    return Material(
+      color: Colors.transparent,
       child: Container(
-        color: Colors.black.withValues(alpha: 0.15),
+        color: (isDark ? Colors.black : Colors.white).withValues(alpha: 0.92),
         child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: isDark 
-                      ? Colors.black.withValues(alpha: 0.7) 
-                      : Colors.white.withValues(alpha: 0.8),
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(
-                    color: isDark ? Colors.white12 : Colors.black.withValues(alpha: 0.1),
+          child: TweenAnimationBuilder<double>(
+            duration: const Duration(milliseconds: 500),
+            tween: Tween(begin: 0.0, end: 1.0),
+            builder: (context, value, child) {
+              return Transform.scale(
+                scale: 0.7 + (value * 0.3),
+                child: Opacity(
+                  opacity: value,
+                  child: child,
+                ),
+              );
+            },
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Logo with pulse animation
+                TweenAnimationBuilder<double>(
+                  duration: const Duration(milliseconds: 1500),
+                  tween: Tween(begin: 0.95, end: 1.05),
+                  curve: Curves.easeInOut,
+                  builder: (context, scale, child) {
+                    return Transform.scale(
+                      scale: scale,
+                      child: child,
+                    );
+                  },
+                  onEnd: () {
+                    // Repeat animation
+                    if (mounted) setState(() {});
+                  },
+                  child: Container(
+                    width: 100,
+                    height: 100,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(24),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.blue.withValues(alpha: 0.2),
+                          blurRadius: 20,
+                          spreadRadius: 5,
+                        ),
+                      ],
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(24),
+                      child: Image.asset(
+                        'assets/images/app_icon.png',
+                        fit: BoxFit.cover,
+                      ),
+                    ),
                   ),
                 ),
-                child: CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation(AppColors.blue),
-                  strokeWidth: 3,
+                const SizedBox(height: 28),
+                Text(
+                  'Đang tải video',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: isDark ? Colors.white : Colors.black87,
+                      ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Đang tải video...',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: isDark ? Colors.white : Colors.black87,
-                      letterSpacing: 0.5,
-                    ),
-              ),
-            ],
+                const SizedBox(height: 8),
+                Text(
+                  'Vui lòng đợi trong giây lát',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: isDark ? Colors.white60 : Colors.black54,
+                      ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -400,7 +440,7 @@ class _YouTubeLearningScreenState extends State<YouTubeLearningScreen> {
 
   void _showAddVideoModal() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -409,98 +449,137 @@ class _YouTubeLearningScreenState extends State<YouTubeLearningScreen> {
         builder: (context, setModalState) {
           // Store the modal's setState for use in search handler
           _modalSetState = setModalState;
-          
+
           return Container(
             height: MediaQuery.of(context).size.height * 0.85,
             decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF1A1C1E) : Colors.white,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.2),
-                  blurRadius: 20,
-                  offset: const Offset(0, -5),
-                ),
-              ],
+              color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
             ),
-            child: ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                child: Column(
-                  children: [
-                    // Handle line
-                    Container(
-                      margin: const EdgeInsets.only(top: 12),
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: isDark ? Colors.white12 : Colors.black12,
-                        borderRadius: BorderRadius.circular(2),
+            child: Column(
+              children: [
+                // Handle line
+                Container(
+                  margin: const EdgeInsets.only(top: 12),
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.white.withValues(alpha: 0.2) : Colors.black.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+
+                // Header with gradient
+                Container(
+                  padding: const EdgeInsets.fromLTRB(24, 16, 16, 16),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        AppColors.blue.withValues(alpha: 0.08),
+                        AppColors.emerald.withValues(alpha: 0.05),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    border: Border(
+                      bottom: BorderSide(
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.08)
+                            : Colors.black.withValues(alpha: 0.05),
                       ),
                     ),
-                    
-                    // Header
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(24, 20, 16, 12),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Thêm bài học mới',
-                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [AppColors.blue, AppColors.emerald],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppColors.blue.withValues(alpha: 0.3),
+                              blurRadius: 8,
+                              spreadRadius: 1,
                             ),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.close_rounded),
-                            onPressed: () => Navigator.pop(context),
-                          ),
-                        ],
+                          ],
+                        ),
+                        child: const Icon(
+                          Icons.video_library_rounded,
+                          color: Colors.white,
+                          size: 24,
+                        ),
                       ),
-                    ),
-                    
-                    Expanded(
-                      child: SingleChildScrollView(
-                        padding: const EdgeInsets.all(24),
+                      const SizedBox(width: 14),
+                      Expanded(
                         child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // Inline refactored tabs to use setModalState
-                            Container(
-                              decoration: BoxDecoration(
-                                border: Border(
-                                  bottom: BorderSide(
-                                    color: isDark 
-                                        ? Colors.white.withValues(alpha: 0.1) 
-                                        : Colors.black.withValues(alpha: 0.05),
-                                    width: 1,
-                                  ),
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: _buildModalTab('Tìm kiếm', Icons.search_rounded, 0, isDark, setModalState),
-                                  ),
-                                  Expanded(
-                                    child: _buildModalTab('Link YouTube', Icons.link_rounded, 1, isDark, setModalState),
-                                  ),
-                                ],
+                            Text(
+                              'Thêm bài học mới',
+                              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
-                            
-                            const SizedBox(height: 24),
-                            
-                            _inputTabIndex == 0
-                                ? _buildSearchTab(isDark)
-                                : _buildDirectLinkTab(isDark),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Tìm kiếm hoặc dán link YouTube',
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: isDark ? Colors.white60 : Colors.black54,
+                              ),
+                            ),
                           ],
                         ),
                       ),
-                    ),
-                  ],
+                      IconButton(
+                        icon: Icon(
+                          Icons.close_rounded,
+                          color: isDark ? Colors.white70 : Colors.black54,
+                        ),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
+
+                // Tabs
+                Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.05)
+                        : Colors.black.withValues(alpha: 0.03),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: _buildModalTab('Tìm kiếm', Icons.search_rounded, 0, isDark, setModalState),
+                      ),
+                      Expanded(
+                        child: _buildModalTab('Link YouTube', Icons.link_rounded, 1, isDark, setModalState),
+                      ),
+                    ],
+                  ),
+                ),
+
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                    child: Column(
+                      children: [
+                        _inputTabIndex == 0
+                            ? _buildSearchTab(isDark)
+                            : _buildDirectLinkTab(isDark),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
           );
         }
@@ -521,15 +600,30 @@ class _YouTubeLearningScreenState extends State<YouTubeLearningScreen> {
         setState(() {}); // Still update parent for view consistency
       },
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(vertical: 14),
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeInOut,
+        margin: const EdgeInsets.all(4),
+        padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
-          border: Border(
-            bottom: BorderSide(
-              color: isActive ? AppColors.blue : Colors.transparent,
-              width: 2,
-            ),
-          ),
+          gradient: isActive
+              ? LinearGradient(
+                  colors: [AppColors.blue, AppColors.emerald],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                )
+              : null,
+          color: isActive ? null : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+          boxShadow: isActive
+              ? [
+                  BoxShadow(
+                    color: AppColors.blue.withValues(alpha: 0.3),
+                    blurRadius: 8,
+                    spreadRadius: 0,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -537,18 +631,18 @@ class _YouTubeLearningScreenState extends State<YouTubeLearningScreen> {
             Icon(
               icon,
               size: 20,
-              color: isActive 
-                  ? AppColors.blue 
-                  : (isDark ? Colors.white38 : Colors.black38),
+              color: isActive
+                  ? Colors.white
+                  : (isDark ? Colors.white54 : Colors.black54),
             ),
             const SizedBox(width: 8),
             Text(
               label,
               style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-                    color: isActive 
-                        ? (isDark ? Colors.white : Colors.black) 
-                        : (isDark ? Colors.white38 : Colors.black38),
+                    fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+                    color: isActive
+                        ? Colors.white
+                        : (isDark ? Colors.white54 : Colors.black54),
                   ),
             ),
           ],
@@ -595,15 +689,6 @@ class _YouTubeLearningScreenState extends State<YouTubeLearningScreen> {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              if (_isTranslating)
-                SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation(AppColors.blue),
-                  ),
-                ),
             ],
           ),
         ),
@@ -796,26 +881,45 @@ class _YouTubeLearningScreenState extends State<YouTubeLearningScreen> {
                     color: isDark ? Colors.white38 : Colors.black38,
                   ),
                   filled: true,
-                  fillColor: isDark 
+                  fillColor: isDark
                       ? Colors.white.withValues(alpha: 0.05)
                       : Colors.black.withValues(alpha: 0.03),
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: BorderSide.none,
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide(
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.1)
+                          : Colors.black.withValues(alpha: 0.05),
+                    ),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide(
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.1)
+                          : Colors.black.withValues(alpha: 0.05),
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide(
+                      color: AppColors.blue,
+                      width: 2,
+                    ),
                   ),
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: 20,
-                    vertical: 16,
+                    vertical: 18,
                   ),
                   prefixIcon: Icon(
-                    Icons.link,
+                    Icons.link_rounded,
                     color: isDark ? Colors.white54 : Colors.black54,
                     size: 22,
                   ),
                   suffixIcon: _urlController.text.isNotEmpty
                       ? IconButton(
                           icon: Icon(
-                            Icons.clear,
+                            Icons.clear_rounded,
                             color: isDark ? Colors.white54 : Colors.black54,
                             size: 20,
                           ),
@@ -834,23 +938,32 @@ class _YouTubeLearningScreenState extends State<YouTubeLearningScreen> {
                 onSubmitted: (_) => _handleLoadVideo(),
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 10),
             // Paste button
-            IconButton(
-              onPressed: _pasteFromClipboard,
-              style: IconButton.styleFrom(
-                backgroundColor: isDark
-                    ? Colors.white.withValues(alpha: 0.1)
-                    : Colors.black.withValues(alpha: 0.05),
-                padding: const EdgeInsets.all(16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    AppColors.blue.withValues(alpha: 0.15),
+                    AppColors.emerald.withValues(alpha: 0.1),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: AppColors.blue.withValues(alpha: 0.2),
+                  width: 1,
                 ),
               ),
-              icon: Icon(
-                Icons.content_paste,
-                color: isDark ? Colors.white70 : Colors.black54,
-                size: 22,
+              child: IconButton(
+                onPressed: _pasteFromClipboard,
+                icon: Icon(
+                  Icons.content_paste_rounded,
+                  color: AppColors.blue,
+                  size: 22,
+                ),
+                padding: const EdgeInsets.all(14),
               ),
             ),
           ],
@@ -858,32 +971,66 @@ class _YouTubeLearningScreenState extends State<YouTubeLearningScreen> {
         
         const SizedBox(height: 16),
         
-        // Load Button
-        SizedBox(
+        // Load Button with gradient
+        Container(
           width: double.infinity,
           height: 54,
-          child: ElevatedButton(
-            onPressed: (_isLoading || _urlController.text.trim().isEmpty) ? null : _handleLoadVideo,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.blue,
-              foregroundColor: Colors.white,
-              elevation: 0,
-              shadowColor: Colors.transparent,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              disabledBackgroundColor: isDark 
-                  ? Colors.white.withValues(alpha: 0.05) 
-                  : Colors.black.withValues(alpha: 0.05),
-              disabledForegroundColor: isDark ? Colors.white24 : Colors.black26,
-            ),
-            child: Text(
-              'Bắt đầu bài học',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.5,
+          decoration: BoxDecoration(
+            gradient: (_isLoading || _urlController.text.trim().isEmpty)
+                ? null
+                : LinearGradient(
+                    colors: [AppColors.blue, AppColors.emerald],
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
                   ),
+            color: (_isLoading || _urlController.text.trim().isEmpty)
+                ? (isDark
+                    ? Colors.white.withValues(alpha: 0.05)
+                    : Colors.black.withValues(alpha: 0.05))
+                : null,
+            borderRadius: BorderRadius.circular(14),
+            boxShadow: (_isLoading || _urlController.text.trim().isEmpty)
+                ? null
+                : [
+                    BoxShadow(
+                      color: AppColors.blue.withValues(alpha: 0.3),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: (_isLoading || _urlController.text.trim().isEmpty)
+                  ? null
+                  : _handleLoadVideo,
+              borderRadius: BorderRadius.circular(14),
+              child: Center(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.play_circle_filled,
+                      color: (_isLoading || _urlController.text.trim().isEmpty)
+                          ? (isDark ? Colors.white24 : Colors.black26)
+                          : Colors.white,
+                      size: 24,
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      'Bắt đầu bài học',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            color: (_isLoading || _urlController.text.trim().isEmpty)
+                                ? (isDark ? Colors.white24 : Colors.black26)
+                                : Colors.white,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.3,
+                          ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
         ),
@@ -919,19 +1066,38 @@ class _YouTubeLearningScreenState extends State<YouTubeLearningScreen> {
               color: isDark ? Colors.white38 : Colors.black38,
             ),
             filled: true,
-            fillColor: isDark 
+            fillColor: isDark
                 ? Colors.white.withValues(alpha: 0.05)
                 : Colors.black.withValues(alpha: 0.03),
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide.none,
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide(
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.1)
+                    : Colors.black.withValues(alpha: 0.05),
+              ),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide(
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.1)
+                    : Colors.black.withValues(alpha: 0.05),
+              ),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide(
+                color: AppColors.blue,
+                width: 2,
+              ),
             ),
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 20,
-              vertical: 16,
+              vertical: 18,
             ),
             prefixIcon: Icon(
-              Icons.play_circle_outline,
+              Icons.video_library_rounded,
               color: isDark ? Colors.white54 : Colors.black54,
               size: 24,
             ),
@@ -947,15 +1113,27 @@ class _YouTubeLearningScreenState extends State<YouTubeLearningScreen> {
                       ),
                     ),
                   )
-                : IconButton(
-                    onPressed: () {
-                      _searchFocus.unfocus();
-                      _handleSearch();
-                    },
-                    icon: Icon(
-                      Icons.search,
-                      color: AppColors.blue,
-                      size: 24,
+                : Container(
+                    margin: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [AppColors.blue, AppColors.emerald],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: IconButton(
+                      onPressed: () {
+                        _searchFocus.unfocus();
+                        _handleSearch();
+                      },
+                      icon: const Icon(
+                        Icons.search_rounded,
+                        color: Colors.white,
+                        size: 22,
+                      ),
+                      padding: EdgeInsets.zero,
                     ),
                   ),
           ),
@@ -1323,7 +1501,7 @@ class _YouTubeLearningScreenState extends State<YouTubeLearningScreen> {
     try {
       // Fetch subtitles
       final response = await _subtitleService.fetchSubtitles(videoId, lang: 'ko');
-      
+
       if (!response.success || response.subtitles.isEmpty) {
         throw Exception('Video không có phụ đề tiếng Hàn');
       }
@@ -1353,10 +1531,13 @@ class _YouTubeLearningScreenState extends State<YouTubeLearningScreen> {
       // Auto-translate to Vietnamese
       _translateSubtitles();
     } catch (e) {
+      final errorMessage = e.toString().replaceAll('Exception: ', '');
       setState(() {
         _isLoading = false;
-        _error = e.toString().replaceAll('Exception: ', '');
+        _error = errorMessage;
       });
+      // Show error notification to user
+      _showError(errorMessage);
     }
   }
 

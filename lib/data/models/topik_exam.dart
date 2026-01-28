@@ -187,6 +187,7 @@ class TOPIKInstructionGroup {
   final TOPIKExample example;
   final List<TOPIKQuestion> questions;
   final TOPIKQuestionContent? sharedContent;
+  final String? groupAudioUrl; // Audio shared for all questions in this group
 
   TOPIKInstructionGroup({
     required this.type,
@@ -194,6 +195,7 @@ class TOPIKInstructionGroup {
     required this.example,
     required this.questions,
     this.sharedContent,
+    this.groupAudioUrl,
   });
 
   factory TOPIKInstructionGroup.fromJson(Map<String, dynamic> json) {
@@ -205,9 +207,10 @@ class TOPIKInstructionGroup {
               ?.map((e) => TOPIKQuestion.fromJson(e))
               .toList() ??
           [],
-      sharedContent: json['shared_content'] != null 
+      sharedContent: json['shared_content'] != null
           ? TOPIKQuestionContent.fromJson(json['shared_content'])
           : null,
+      groupAudioUrl: json['group_audio_url'],
     );
   }
 
@@ -218,6 +221,7 @@ class TOPIKInstructionGroup {
       'example': example.toJson(),
       'questions': questions.map((e) => e.toJson()).toList(),
       if (sharedContent != null) 'shared_content': sharedContent!.toJson(),
+      if (groupAudioUrl != null) 'group_audio_url': groupAudioUrl,
     };
   }
 }

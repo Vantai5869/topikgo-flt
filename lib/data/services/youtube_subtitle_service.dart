@@ -15,7 +15,7 @@ class YouTubeSubtitleService {
   Future<SubtitleResponse> fetchSubtitles(String videoId, {String lang = 'ko'}) async {
     try {
       final url = Uri.parse('$baseUrl/subtitles?video_id=$videoId&lang=$lang');
-      
+
       final response = await http.get(
         url,
         headers: {
@@ -32,12 +32,19 @@ class YouTubeSubtitleService {
         final data = json.decode(response.body);
         return SubtitleResponse.fromJson(data);
       } else if (response.statusCode == 404) {
-        throw Exception('Video không có phụ đề cho ngôn ngữ này');
+        throw Exception('Video không có phụ đề tiếng Hàn!');
+      } else if (response.statusCode == 429) {
+        // Check if it's actually a "no subtitles" case from YouTube
+        if (response.body.contains('Failed to fetch subtitle content from YouTube') ||
+            response.body.contains('detail')) {
+          throw Exception('Video không có phụ đề tiếng Hàn');
+        }
+        throw Exception('Quá nhiều yêu cầu. Vui lòng thử lại sau vài giây');
       } else {
         throw Exception('Lỗi tải phụ đề (${response.statusCode})');
       }
     } catch (e) {
-      if (e.toString().contains('SocketException') || 
+      if (e.toString().contains('SocketException') ||
           e.toString().contains('Failed host lookup')) {
         throw Exception('Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.');
       }

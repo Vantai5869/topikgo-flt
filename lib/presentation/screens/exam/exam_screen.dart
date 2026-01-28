@@ -13,6 +13,9 @@ import '../../../data/services/data_service.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/progress_provider.dart';
 import '../../widgets/exam/topik_question_widget.dart';
+import '../../../data/services/transcript_service.dart';
+import '../../widgets/exam/audio_transcript_widget.dart';
+import '../../../core/utils/global_audio_manager.dart';
 
 /// Mock Test Exam Screen - Has timer, submit button, shows answers only after submit
 class MockTestExamScreen extends StatefulWidget {
@@ -187,7 +190,17 @@ class _MockTestExamScreenState extends State<MockTestExamScreen> {
     if (isSubmitted) return;
 
     _timer?.cancel();
-    
+
+    // Stop all audio when submitting
+    if (exam.skill == '듣기') {
+      // Stop exam audio (main audio for the whole test)
+      if (exam.audioUrl != null) {
+        _audioPlayer.stop();
+      }
+      // Stop any audio from GlobalAudioManager (group audio or question audio)
+      GlobalAudioManager().stop();
+    }
+
     // Calculate score
     int correctCount = 0;
     for (var question in allQuestions) {
@@ -332,6 +345,8 @@ class _MockTestExamScreenState extends State<MockTestExamScreen> {
           isDark: isDark,
           examId: exam.id,
           skill: exam.skill,
+          audioUrl: question.questionAudioUrl, // Enable transcript display after submission
+          hideQuestionAudio: exam.skill == '듣기' && !isSubmitted, // Hide individual audio in listening tests before submit
         ),
       ],
     );
@@ -369,7 +384,35 @@ class _MockTestExamScreenState extends State<MockTestExamScreen> {
           ),
         ),
       ),
-      
+
+      // Group Audio (shared for all questions in group)
+      // Hide in listening tests before submission (similar to individual question audio)
+      if (group.groupAudioUrl != null && (exam.skill != '듣기' || isSubmitted)) ...[
+        const SizedBox(height: 12),
+        AudioPlayerWidget(
+          audioUrl: group.groupAudioUrl!,
+          isDark: isDark,
+        ),
+      ],
+
+      // Group Audio Transcript (show after submission)
+      if (isSubmitted && group.groupAudioUrl != null) ...[
+        Builder(
+          builder: (context) {
+            final transcriptService = TranscriptService.getInstance();
+            final transcript = transcriptService.getTranscriptByAudioUrl(group.groupAudioUrl);
+
+            if (transcript != null) {
+              return AudioTranscriptWidget(
+                transcript: transcript,
+                isDark: isDark,
+              );
+            }
+            return const SizedBox.shrink();
+          },
+        ),
+      ],
+
       // Passage (Shared Content)
       if (group.sharedContent != null && (group.sharedContent!.value != null || group.sharedContent!.type == 'text_with_insertion_points')) ...[
         const SizedBox(height: 12),

@@ -42,6 +42,11 @@ class GlobalAudioManager extends ChangeNotifier {
     if (_currentUrl == url) {
       if (_state == PlayerState.playing) {
         await _player.pause();
+      } else if (_state == PlayerState.completed) {
+        // If audio finished, replay from start
+        _position = Duration.zero;
+        await _player.stop();
+        await _player.play(UrlSource(url));
       } else {
         await _player.resume();
       }

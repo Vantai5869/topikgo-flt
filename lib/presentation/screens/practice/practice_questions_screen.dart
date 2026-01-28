@@ -13,6 +13,8 @@ import '../../../providers/auth_provider.dart';
 import '../../../providers/progress_provider.dart';
 import '../../../core/utils/global_audio_manager.dart';
 import '../../widgets/exam/topik_question_widget.dart';
+import '../../../data/services/transcript_service.dart';
+import '../../widgets/exam/audio_transcript_widget.dart';
 
 /// Practice Questions Screen - Shows ALL questions matching instruction range
 /// Matches React Native practice flow exactly
@@ -415,7 +417,42 @@ class _PracticeQuestionsScreenState extends State<PracticeQuestionsScreen> {
               ),
             ),
           ),
-          
+
+          // Group Audio (shared for all questions in group)
+          if (group.groupAudioUrl != null) ...[
+            const SizedBox(height: 12),
+            AudioPlayerWidget(
+              audioUrl: group.groupAudioUrl!,
+              isDark: isDark,
+            ),
+          ],
+
+          // Group Audio Transcript (show when all questions in group are answered)
+          if (group.groupAudioUrl != null) ...[
+            Builder(
+              builder: (context) {
+                // Check if all questions in this group are answered
+                final allAnswered = group.questions.every((q) {
+                  final uniqueId = '${qInfo.examId}-${q.id}';
+                  return progressProvider.isQuestionAnswered(uniqueId);
+                });
+
+                if (!allAnswered) return const SizedBox.shrink();
+
+                final transcriptService = TranscriptService.getInstance();
+                final transcript = transcriptService.getTranscriptByAudioUrl(group.groupAudioUrl);
+
+                if (transcript != null) {
+                  return AudioTranscriptWidget(
+                    transcript: transcript,
+                    isDark: isDark,
+                  );
+                }
+                return const SizedBox.shrink();
+              },
+            ),
+          ],
+
           // Shared Content (Passage)
           if (group.sharedContent != null && (group.sharedContent!.value != null || group.sharedContent!.type == 'text_with_insertion_points')) ...[
             const SizedBox(height: 12),

@@ -16,6 +16,7 @@ class TopikQuestionWidget extends StatelessWidget {
   final String? examId;
   final String? skill;
   final String? audioUrl; // Audio URL for transcript lookup
+  final bool hideQuestionAudio; // Hide audio for listening tests before submission
 
   const TopikQuestionWidget({
     super.key,
@@ -27,6 +28,7 @@ class TopikQuestionWidget extends StatelessWidget {
     this.examId,
     this.skill,
     this.audioUrl,
+    this.hideQuestionAudio = false,
   });
 
   static Map<String, Map<String, String>> get htmlCustomStyles => {
@@ -103,7 +105,8 @@ class TopikQuestionWidget extends StatelessWidget {
                 const SizedBox(height: 16),
 
                 // Audio (Question specific or Exam general)
-                if (question.questionAudioUrl != null) ...[
+                // Hide in listening tests before submission (shared audio is used)
+                if (question.questionAudioUrl != null && !hideQuestionAudio) ...[
                   AudioPlayerWidget(audioUrl: question.questionAudioUrl!, isDark: isDark),
                   const SizedBox(height: 16),
                 ],
