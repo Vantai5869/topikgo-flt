@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'core/theme/app_theme.dart';
+import 'core/services/app_update_service.dart';
 import 'providers/theme_provider.dart';
 import 'providers/auth_provider.dart';
 import 'providers/progress_provider.dart';
@@ -47,7 +48,15 @@ class _MainScreenState extends State<MainScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _setupAuthListener();
+      _checkForUpdate();
     });
+  }
+
+  /// Check for app updates on startup
+  void _checkForUpdate() {
+    // Check for update with flexible update (user can skip)
+    // Set forceUpdate: true for critical updates that require immediate installation
+    AppUpdateService().checkForUpdate(context, forceUpdate: false);
   }
 
   void _setupAuthListener() {

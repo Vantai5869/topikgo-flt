@@ -43,7 +43,7 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
     setState(() {
       isLoading = true;
     });
-    
+
     try {
       await _audioManager.play(widget.audioUrl);
     } catch (e) {

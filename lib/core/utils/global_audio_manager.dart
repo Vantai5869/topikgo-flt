@@ -9,7 +9,10 @@ class GlobalAudioManager extends ChangeNotifier {
 
   GlobalAudioManager._internal() {
     _player = AudioPlayer();
-    
+
+    // Don't configure anything - use defaults like exam screen
+    // This matches the fast-loading exam screen implementation
+
     _player.onPlayerStateChanged.listen((state) {
       _state = state;
       notifyListeners();
@@ -43,14 +46,16 @@ class GlobalAudioManager extends ChangeNotifier {
       if (_state == PlayerState.playing) {
         await _player.pause();
       } else if (_state == PlayerState.completed) {
-        // If audio finished, replay from start
+        // Audio finished - just play again from same source
+        // Don't stop() - it releases resources and causes delay
+        _duration = Duration.zero;
         _position = Duration.zero;
-        await _player.stop();
         await _player.play(UrlSource(url));
       } else {
         await _player.resume();
       }
     } else {
+      // Different URL - stop and switch
       await _player.stop();
       _currentUrl = url;
       _duration = Duration.zero;

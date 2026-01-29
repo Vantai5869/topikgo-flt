@@ -1,7 +1,7 @@
 name: topikgo_flutter
 description: "TOPIK learning app - Flutter version"
 publish_to: 'none'
-version: 1.0.2+3
+version: 1.0.4+17
 
 environment:
   sdk: ^3.5.0
@@ -36,6 +36,7 @@ dependencies:
   uuid: ^4.3.3
   html_unescape: ^2.0.0
   flutter_widget_from_html_core: ^0.15.1
+  in_app_update: ^4.2.3
   
   # Icons
   cupertino_icons: ^1.0.8
